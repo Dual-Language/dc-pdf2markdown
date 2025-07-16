@@ -26,15 +26,17 @@ if __name__ == "__main__":
             found_job = False
             for guid_dir, pdf_path in worker.find_jobs():
                 found_job = True
+                # Extract book_id from guid_dir
+                book_id = Path(guid_dir).name
                 # Log service-start event for this book/job
-                write_service_event("service-start", str(guid_dir), "pdf2markdown", storage_root=str(STORAGE_ROOT))
+                write_service_event("service-start", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT))
                 try:
                     worker.process_pdf(guid_dir, pdf_path)
                     # Log service-stop event on success
-                    write_service_event("service-stop", str(guid_dir), "pdf2markdown", storage_root=str(STORAGE_ROOT), result="success")
+                    write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="success")
                 except Exception as e:
                     # Log service-stop event on error
-                    write_service_event("service-stop", str(guid_dir), "pdf2markdown", storage_root=str(STORAGE_ROOT), result="error", error=str(e))
+                    write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="error", error=str(e))
                     logger.error_with_error(f"Error processing {guid_dir}: {e}", e)
             if not found_job:
                 logger.info("No jobs found. Sleeping...")

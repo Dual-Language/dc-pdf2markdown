@@ -67,3 +67,19 @@ Integration tests are included to ensure correct PDF conversion and resumable pr
 - The system should extract all available metadata from the PDF file automatically.
 - User input should be minimized; metadata fields should be filled in without requiring manual entry unless information is missing from the PDF.
 - The extracted metadata must be written to `bookmetadata.json` in the corresponding storage directory. 
+
+## Running with Docker (Local Testing)
+
+To run the service in a Docker container and mount your local `storage` folder to `/temp/storage` inside the container:
+
+**Bash (Linux/macOS/Git Bash/WSL):**
+```bash
+docker run --rm -it -v "$(pwd)/storage":/temp/storage pdf2markdown:latest
+```
+
+**Windows CMD:**
+```cmd
+docker run --rm -it -v %cd%\storage:/temp/storage pdf2markdown:latest
+```
+
+Make sure the `storage` folder exists in your project directory before running the command. 
