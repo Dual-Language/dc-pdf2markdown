@@ -1,0 +1,91 @@
+# Dockerignore file for pdf2md-service
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+documentation/
+
+# Test files
+test_*
+*_test.py
+tests/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Images (we'll generate these)
+images/
+my_images/
+*.jpeg
+*.jpg
+*.png
+*.gif
+
+# PDF files (samples)
+*.pdf
+
+# Output files
+output/
+*.html
+
+# Logs
+*.log
+logs/
+
+# Database dumps
+*.sql
+dumpfile.sql/
+
+# Environment files
+.env
+.env.*
