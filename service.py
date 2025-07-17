@@ -134,7 +134,17 @@ class PDF2MarkdownWorker:
         for guid_dir in self.storage_root.iterdir():
             if guid_dir.is_dir():
                 pdf_path = guid_dir / "originalbook.pdf"
-                if pdf_path.exists():
+                progress_path = guid_dir / PROGRESS_FILENAME
+                job_completed = False
+                if progress_path.exists():
+                    try:
+                        with open(progress_path, 'r') as f:
+                            progress = json.load(f)
+                        if progress.get("status") == "completed":
+                            job_completed = True
+                    except Exception as e:
+                        self.logger.warning(f"Could not read progress file {progress_path}: {e}")
+                if pdf_path.exists() and not job_completed:
                     self.logger.info(f"Found job: {pdf_path}")
                     yield guid_dir, pdf_path
         self.logger.info("Exiting find_jobs()")
