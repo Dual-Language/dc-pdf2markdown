@@ -23,7 +23,7 @@ RUN pip install -r requirements.txt
 COPY . /app/
 
 # Initialize/download models during build
-RUN python initialize_models.py
+# RUN python initialize_models.py
 
 # Create storage directory (will be mounted in production)
 RUN mkdir -p /temp/storage
