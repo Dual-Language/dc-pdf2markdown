@@ -14,19 +14,15 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies from requirements.txt
-RUN pip install --upgrade pip
-COPY requirements.txt /app/
-RUN pip install -r requirements.txt
-
 # Copy project files
 COPY . /app/
 
-# Initialize/download models during build
-# RUN python initialize_models.py
+# Copy and set permissions for the startup script
+COPY start.sh /app/
+RUN chmod +x /app/start.sh
 
 # Create storage directory (will be mounted in production)
 RUN mkdir -p /temp/storage
 
 # Set entrypoint
-ENTRYPOINT ["python3", "main.py"]
+ENTRYPOINT ["/app/start.sh"]
