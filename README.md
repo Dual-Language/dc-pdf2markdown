@@ -1,5 +1,33 @@
 # PDF to Markdown Service
 
+## Workflow of this Release
+
+1. **Run the Application**  
+   Start the service.
+
+2. **Prepare Test Data**  
+   - Locate the `./../storage/` directory.
+   - Create a subfolder for your test book: `./../storage/{guid}/`.
+   - Place both the PDF file and its `bookmetadata.json` into this folder.
+
+3. **Expected Results After Processing**  
+   Once the service processes the book, you should see:
+   - An updated `bookmetadata.json`
+   - A new `pdf2markdown-progress.json`
+   - A new `originalbook.md`
+
+4. **Development Process**  
+   - Make improvements directly on the `master` branch.
+   - Perform manual tests to ensure the output files match those from the previous release, but with improved speed and efficiency.
+
+5. **Release Steps**  
+   - Build and push the Docker image.
+   - Once the service and Docker image are stable, create a new branch: `rc/performance-improvement`.
+
+6. **Next Steps**  
+   - After stabilizing this service, proceed to the next service in your workflow.
+
+
 ## Role
 The pdf2markdown service converts the original PDF file into a markdown file and generates book metadata.
 
