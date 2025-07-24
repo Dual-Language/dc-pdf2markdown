@@ -24,5 +24,7 @@ RUN chmod +x /app/start.sh
 # Create storage directory (will be mounted in production)
 RUN mkdir -p /temp/storage
 
+EXPOSE 3000
+
 # Set entrypoint
 ENTRYPOINT ["/app/start.sh"]

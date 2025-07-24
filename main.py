@@ -11,10 +11,26 @@ from service import PDF2MarkdownWorker
 from logger import get_logger
 from event_logger import write_service_event
 
+# --- Flask server for health check ---
+from flask import Flask, jsonify
+import threading
+
 DEFAULT_STORAGE_ROOT = Path("../storage")
 STORAGE_ROOT = Path(os.environ.get("STORAGE_ROOT", str(DEFAULT_STORAGE_ROOT))).resolve()
 
-if __name__ == "__main__":
+# Flag to indicate if the worker loop has started
+worker_loop_started = threading.Event()
+
+app = Flask(__name__)
+
+@app.route('/ping')
+def ping():
+    if worker_loop_started.is_set():
+        return jsonify({"status": "ok"}), 200
+    else:
+        return jsonify({"status": "starting"}), 503
+
+def run_worker():
     logger = get_logger(STORAGE_ROOT)
     logger.info(f"Using storage root: {STORAGE_ROOT}")
     try:
@@ -22,6 +38,7 @@ if __name__ == "__main__":
         worker = PDF2MarkdownWorker(STORAGE_ROOT)
         logger.info("PDF2MarkdownWorker instance created successfully.")
         logger.info("Starting PDF2MarkdownWorker loop...")
+        worker_loop_started.set()  # Indicate the worker loop has started
         while True:
             found_job = False
             for guid_dir, pdf_path in worker.find_jobs():
@@ -44,3 +61,13 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error_with_error(f"Fatal error in main: {e}", e)
         raise
+
+def run_flask():
+    app.run(host="0.0.0.0", port=3000)
+
+if __name__ == "__main__":
+    # Start the worker in a thread
+    worker_thread = threading.Thread(target=run_worker, daemon=True)
+    worker_thread.start()
+    # Start Flask server in main thread (so container stops if Flask dies)
+    run_flask()
