@@ -17,8 +17,7 @@ RUN apt-get update && \
 # Copy project files
 COPY . /app/
 
-# Copy and set permissions for the startup script
-COPY start.sh /app/
+# Ensure start.sh has proper permissions
 RUN chmod +x /app/start.sh
 
 # Create storage directory (will be mounted in production)
