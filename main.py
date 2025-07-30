@@ -34,10 +34,10 @@ def run_worker():
     logger = get_logger(STORAGE_ROOT)
     logger.info(f"Using storage root: {STORAGE_ROOT}")
     try:
-        logger.info("About to create PDF2MarkdownWorker instance.")
+        logger.debug("About to create PDF2MarkdownWorker instance.")
         worker = PDF2MarkdownWorker(STORAGE_ROOT)
-        logger.info("PDF2MarkdownWorker instance created successfully.")
-        logger.info("Starting PDF2MarkdownWorker loop...")
+        logger.debug("PDF2MarkdownWorker instance created successfully.")
+        logger.debug("Starting PDF2MarkdownWorker loop...")
         worker_loop_started.set()  # Indicate the worker loop has started
         while True:
             found_job = False
@@ -56,7 +56,7 @@ def run_worker():
                     write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="error", error=str(e))
                     logger.error_with_error(f"Error processing {guid_dir}: {e}", e)
             if not found_job:
-                logger.info("No jobs found. Sleeping...")
+                logger.debug("No jobs found. Sleeping...")
             time.sleep(10)
     except Exception as e:
         logger.error_with_error(f"Fatal error in main: {e}", e)

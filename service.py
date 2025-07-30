@@ -13,22 +13,22 @@ class MarkerPDFConverter:
     """Converts PDF files to Markdown format using Marker, with image extraction and metadata."""
     def __init__(self, extract_images: bool = True, image_dir: str = "images"):
         logger = get_logger()
-        logger.info(f"MarkerPDFConverter __init__ starting: extract_images={extract_images}, image_dir={image_dir}")
+        logger.debug(f"MarkerPDFConverter __init__ starting: extract_images={extract_images}, image_dir={image_dir}")
         self.extract_images = extract_images
-        logger.info("MarkerPDFConverter: extract_images set.")
+        logger.debug("MarkerPDFConverter: extract_images set.")
         self.image_dir = Path(image_dir)
-        logger.info("MarkerPDFConverter: image_dir Path object created.")
+        logger.debug("MarkerPDFConverter: image_dir Path object created.")
         if self.extract_images:
             self.image_dir.mkdir(exist_ok=True)
-            logger.info("MarkerPDFConverter: image_dir created (if not exists).")
+            logger.debug("MarkerPDFConverter: image_dir created (if not exists).")
         try:
             self.converter = PdfConverter(artifact_dict=create_model_dict())
-            logger.info("MarkerPDFConverter: PdfConverter created.")
+            logger.debug("MarkerPDFConverter: PdfConverter created.")
         except Exception as e:
             logger.info(f"MarkerPDFConverter: PdfConverter creation failed with error: {e}")
             logger.error_with_error(f"Error creating PdfConverter: {e}", e)
             raise
-        logger.info("MarkerPDFConverter __init__ completed.")
+        logger.debug("MarkerPDFConverter __init__ completed.")
 
     def convert_pdf_to_markdown(self, pdf_path: str, output_path: str, image_dir_path: Path, book_id: str | None = None) -> dict:
         pdf_file = Path(pdf_path)
@@ -81,7 +81,7 @@ class MarkerPDFConverter:
                         image_data.save(image_path, format=image_format)
                         image_paths[image_id] = f"{image_dir_path.name}/{image_filename}"
                         image_count += 1
-                        logger.info(f"Extracted image: {image_filename} ({getattr(image_data, 'size', 'unknown size')})", book_id)
+                        logger.debug(f"Extracted image: {image_filename} ({getattr(image_data, 'size', 'unknown size')})", book_id)
                     elif isinstance(image_data, str):
                         if image_data.startswith('data:'):
                             image_data = image_data.split(',', 1)[1]
@@ -90,7 +90,7 @@ class MarkerPDFConverter:
                             f.write(image_bytes)
                         image_paths[image_id] = f"{image_dir_path.name}/{image_filename}"
                         image_count += 1
-                        logger.info(f"Extracted image: {image_filename} (base64)", book_id)
+                        logger.debug(f"Extracted image: {image_filename} (base64)", book_id)
                     else:
                         logger.warning(f"Unknown image data type for {image_id}: {type(image_data)}", book_id)
                 except Exception as e:
@@ -98,9 +98,9 @@ class MarkerPDFConverter:
         except Exception as e:
             logger.warning(f"Image extraction failed: {e}", book_id)
         if image_count == 0:
-            logger.info("No images found or extracted from the document", book_id)
+            logger.debug("No images found or extracted from the document", book_id)
         else:
-            logger.info(f"Successfully extracted {image_count} images", book_id)
+            logger.debug(f"Successfully extracted {image_count} images", book_id)
         return image_count, image_paths
 
     def _update_image_references(self, markdown_text: str, image_paths: Dict[str, str], book_id: str | None = None) -> str:
