@@ -13,6 +13,8 @@ from event_logger import write_service_event
 
 # --- Flask server for health check ---
 from flask import Flask, jsonify
+from flasgger import Swagger
+from api import api as api_blueprint
 import threading
 
 DEFAULT_STORAGE_ROOT = Path("../storage")
@@ -22,6 +24,19 @@ STORAGE_ROOT = Path(os.environ.get("STORAGE_ROOT", str(DEFAULT_STORAGE_ROOT))).r
 worker_loop_started = threading.Event()
 
 app = Flask(__name__)
+app.register_blueprint(api_blueprint, url_prefix='/api')
+
+# Flasgger Swagger config
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "PDF to Markdown API",
+        "description": "Convert PDF to Markdown and download as zip (with images and metadata)",
+        "version": "1.0.0"
+    },
+    "basePath": "/api",
+}
+swagger = Swagger(app, template=swagger_template)
 
 @app.route('/ping')
 def ping():
@@ -66,8 +81,13 @@ def run_flask():
     app.run(host="0.0.0.0", port=3000)
 
 if __name__ == "__main__":
-    # Start the worker in a thread
-    worker_thread = threading.Thread(target=run_worker, daemon=True)
-    worker_thread.start()
+    # Check environment variable to disable job scanning
+    disable_job_scanner = os.environ.get("DISABLE_JOB_SCANNER", "0").lower() in ("1", "true", "yes")
+    if not disable_job_scanner:
+        # Start the worker in a thread
+        worker_thread = threading.Thread(target=run_worker, daemon=True)
+        worker_thread.start()
+    else:
+        print("[INFO] Job scanning is disabled via DISABLE_JOB_SCANNER environment variable.")
     # Start Flask server in main thread (so container stops if Flask dies)
     run_flask()

@@ -133,20 +133,23 @@ class PDF2MarkdownWorker:
         self.logger.info("Entering find_jobs()...")
         for guid_dir in self.storage_root.iterdir():
             if guid_dir.is_dir():
-                pdf_path = guid_dir / "originalbook.pdf"
-                progress_path = guid_dir / PROGRESS_FILENAME
-                job_completed = False
-                if progress_path.exists():
-                    try:
-                        with open(progress_path, 'r') as f:
-                            progress = json.load(f)
-                        if progress.get("status") == "completed":
-                            job_completed = True
-                    except Exception as e:
-                        self.logger.warning(f"Could not read progress file {progress_path}: {e}")
-                if pdf_path.exists() and not job_completed:
-                    self.logger.info(f"Found job: {pdf_path}")
-                    yield guid_dir, pdf_path
+                # Support any original*.pdf
+                for pdf_path in guid_dir.glob("original*.pdf"):
+                    progress_path = guid_dir / PROGRESS_FILENAME
+                    job_completed = False
+                    if progress_path.exists():
+                        try:
+                            with open(progress_path, 'r') as f:
+                                progress = json.load(f)
+                            # Check if this specific PDF has been processed (by output .md file)
+                            md_path = guid_dir / f"{pdf_path.stem}.md"
+                            if progress.get("status") == "completed" and md_path.exists():
+                                job_completed = True
+                        except Exception as e:
+                            self.logger.warning(f"Could not read progress file {progress_path}: {e}")
+                    if pdf_path.exists() and not job_completed:
+                        self.logger.info(f"Found job: {pdf_path}")
+                        yield guid_dir, pdf_path
         self.logger.info("Exiting find_jobs()")
 
     def load_progress(self, guid_dir: Path) -> Dict[str, Any]:
@@ -171,16 +174,16 @@ class PDF2MarkdownWorker:
         book_id = guid_dir.name
         self.logger.info(f"Starting process_pdf for {pdf_path}", book_id)
         progress = self.load_progress(guid_dir)
-        if progress.get("status") == "completed":
+        md_path = guid_dir / f"{pdf_path.stem}.md"
+        if progress.get("status") == "completed" and md_path.exists():
             self.logger.info(f"Skipping {pdf_path}, already completed.", book_id)
             return
         try:
             self.logger.info(f"Processing {pdf_path}", book_id)
             self.save_progress(guid_dir, {"status": "processing", "step": "converting"})
             image_dir_path = guid_dir / "images"
-            conversion_metadata = self.converter.convert_pdf_to_markdown(str(pdf_path), str(guid_dir / f"{pdf_path.stem}.md"), image_dir_path, book_id)
+            conversion_metadata = self.converter.convert_pdf_to_markdown(str(pdf_path), str(md_path), image_dir_path, book_id)
             self.save_progress(guid_dir, {"status": "processing", "step": "writing_metadata"})
-            
             # Read existing bookmetadata.json if it exists, otherwise create new
             meta_path = guid_dir / "bookmetadata.json"
             existing_metadata = {}
@@ -191,10 +194,8 @@ class PDF2MarkdownWorker:
                     self.logger.info(f"Read existing bookmetadata.json for {guid_dir.name}", book_id)
                 except Exception as e:
                     self.logger.warning(f"Could not read existing bookmetadata.json: {e}", book_id)
-            
             # Merge conversion metadata with existing metadata
             merged_metadata = {**existing_metadata, **conversion_metadata}
-            
             # Write merged metadata back to file
             with open(meta_path, 'w', encoding='utf-8') as f:
                 json.dump(merged_metadata, f, indent=2)
@@ -204,4 +205,4 @@ class PDF2MarkdownWorker:
         except Exception as e:
             self.logger.error_with_error(f"Error processing {pdf_path}: {e}", e, book_id)
             self.save_progress(guid_dir, {"status": "failed", "error": str(e)})
-        self.logger.info(f"Exiting process_pdf for {pdf_path}", book_id) 
+        self.logger.info(f"Exiting process_pdf for {pdf_path}", book_id)
