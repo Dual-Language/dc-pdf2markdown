@@ -1,0 +1,9 @@
+flask
+marker-pdf
+torch
+transformers
+pillow
+numpy
+scipy
+requests
+beautifulsoup4

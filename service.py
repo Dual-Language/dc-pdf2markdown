@@ -45,6 +45,10 @@ class MarkerPDFConverter:
             if self.extract_images and images:
                 image_count, image_paths = self._save_images(images, image_dir_path, book_id)
             text = self._update_image_references(text, image_paths, book_id)
+            
+            # Format Table of Contents to be vertical
+            text = self._format_table_of_contents(text, book_id)
+            
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(text)
             conversion_metadata = {
@@ -121,6 +125,95 @@ class MarkerPDFConverter:
             extracted_count = sum(1 for ref in image_refs if ref in image_paths)
             logger.info(f"Successfully extracted {extracted_count}/{len(image_refs)} images", book_id)
         return updated_text
+
+    def _format_table_of_contents(self, markdown_text: str, book_id: str | None = None) -> str:
+        """
+        Format horizontally laid out Table of Contents to be properly vertical.
+        This function finds TOC sections and reformats them for better readability.
+        """
+        import re
+        logger = get_logger()
+        
+        lines = markdown_text.split('\n')
+        formatted_lines = []
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i]
+            
+            # Check if we're in a Contents section
+            if '# Contents' in line or line.strip() == 'Contents':
+                formatted_lines.append(line)
+                i += 1
+                
+                # Process following lines until we hit another heading
+                while i < len(lines):
+                    current_line = lines[i]
+                    
+                    # If we hit another heading (not containing Contents), we're done
+                    if current_line.strip().startswith('#') and 'Contents' not in current_line:
+                        break
+                    
+                    # Look for lines with multiple TOC entries (horizontal format)
+                    # Pattern: [text](#link) [text](#link) [text](#link)...
+                    toc_pattern = r'\[([^\]]+)\]\(#[^)]+\)'
+                    matches = re.findall(toc_pattern, current_line)
+                    
+                    if len(matches) > 1:  # Multiple TOC entries on one line
+                        logger.info(f"Found horizontal TOC line with {len(matches)} entries, reformatting...", book_id)
+                        
+                        # Extract all individual TOC entries
+                        full_matches = re.findall(r'\[([^\]]+)\]\(#[^)]+\)', current_line)
+                        full_link_matches = re.findall(r'(\[[^\]]+\]\(#[^)]+\))', current_line)
+                        
+                        # Add each entry on its own line with proper numbering
+                        for idx, entry in enumerate(full_link_matches):
+                            # Try to extract chapter number from the link text
+                            number_match = re.search(r'\[(\d+)\.?\s*([^\]]+)\]', entry)
+                            if number_match:
+                                chapter_num = number_match.group(1)
+                                chapter_title = number_match.group(2).strip()
+                                link_match = re.search(r'\(#([^)]+)\)', entry)
+                                if link_match:
+                                    link_ref = link_match.group(1)
+                                    formatted_entry = f"{chapter_num}. [{chapter_title}](#{link_ref})"
+                                    formatted_lines.append(formatted_entry)
+                            else:
+                                # For entries without numbers (like intro sections)
+                                # Check if it's an intro/special section
+                                if any(keyword in entry.lower() for keyword in ['learning', 'using', 'introduction', 'preface']):
+                                    formatted_lines.append(entry)
+                                else:
+                                    # Try to add numbering if missing
+                                    title_match = re.search(r'\[([^\]]+)\]', entry)
+                                    link_match = re.search(r'\(#([^)]+)\)', entry)
+                                    if title_match and link_match:
+                                        title = title_match.group(1).strip()
+                                        link_ref = link_match.group(1)
+                                        # Try to extract number from title
+                                        num_in_title = re.search(r'^(\d+)\.?\s*(.+)', title)
+                                        if num_in_title:
+                                            num = num_in_title.group(1)
+                                            clean_title = num_in_title.group(2)
+                                            formatted_entry = f"{num}. [{clean_title}](#{link_ref})"
+                                        else:
+                                            formatted_entry = f"[{title}](#{link_ref})"
+                                        formatted_lines.append(formatted_entry)
+                        
+                        i += 1
+                    elif len(matches) == 1:  # Single TOC entry, keep as-is but ensure proper formatting
+                        formatted_lines.append(current_line)
+                        i += 1
+                    else:  # No TOC entries, regular line
+                        formatted_lines.append(current_line)
+                        i += 1
+            else:
+                formatted_lines.append(line)
+                i += 1
+        
+        formatted_text = '\n'.join(formatted_lines)
+        logger.info("Table of Contents formatting completed", book_id)
+        return formatted_text
 
 class PDF2MarkdownWorker:
     def __init__(self, storage_root: Path):
