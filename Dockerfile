@@ -11,14 +11,16 @@ WORKDIR /app
 
 # Install pip and system dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc && \
+    apt-get install -y --no-install-recommends gcc dos2unix && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy project files
 COPY . /app/
 
-# Ensure start.sh has proper permissions
-RUN chmod +x /app/start.sh
+RUN dos2unix /app/start.sh
+
+# Ensure start.sh has proper permissions and LF line endings
+RUN dos2unix /app/start.sh && chmod +x /app/start.sh
 
 # Create storage directory (will be mounted in production)
 RUN mkdir -p /temp/storage
