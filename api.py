@@ -52,7 +52,9 @@ def convert_pdf():
         book_id = pdf_path.stem
         output_dir = temp_dir / book_id
         output_dir.mkdir(exist_ok=True)
-        worker = PDF2MarkdownWorker(output_dir)
+        # Reuse the global worker instance from main.py
+        from main import worker_instance
+        worker = worker_instance
         # Use the same logic as process_pdf, but for this single file
         image_dir_path = output_dir / "images"
         image_dir_path.mkdir(exist_ok=True)

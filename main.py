@@ -23,6 +23,9 @@ STORAGE_ROOT = Path(os.environ.get("STORAGE_ROOT", str(DEFAULT_STORAGE_ROOT))).r
 # Flag to indicate if the worker loop has started
 worker_loop_started = threading.Event()
 
+# Global worker instance to be reused
+worker_instance = None
+
 app = Flask(__name__)
 app.register_blueprint(api_blueprint, url_prefix='/api')
 
@@ -50,29 +53,34 @@ def run_worker():
     logger.info(f"Using storage root: {STORAGE_ROOT}")
     try:
         logger.debug("About to create PDF2MarkdownWorker instance.")
-        worker = PDF2MarkdownWorker(STORAGE_ROOT)
+        # Create the global worker instance for reuse
+        worker_instance = PDF2MarkdownWorker(STORAGE_ROOT)
         logger.debug("PDF2MarkdownWorker instance created successfully.")
         logger.debug("Starting PDF2MarkdownWorker loop...")
         worker_loop_started.set()  # Indicate the worker loop has started
-        while True:
-            found_job = False
-            for guid_dir, pdf_path in worker.find_jobs():
-                found_job = True
-                # Extract book_id from guid_dir
-                book_id = Path(guid_dir).name
-                # Log service-start event for this book/job
-                write_service_event("service-start", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT))
-                try:
-                    worker.process_pdf(guid_dir, pdf_path)
-                    # Log service-stop event on success
-                    write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="success")
-                except Exception as e:
-                    # Log service-stop event on error
-                    write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="error", error=str(e))
-                    logger.error_with_error(f"Error processing {guid_dir}: {e}", e)
-            if not found_job:
-                logger.debug("No jobs found. Sleeping...")
-            time.sleep(10)
+        disable_job_scanner = os.environ.get("DISABLE_JOB_SCANNER", "0").lower() in ("1", "true", "yes")
+        if not disable_job_scanner:
+            while True:
+                found_job = False
+                for guid_dir, pdf_path in worker_instance.find_jobs():
+                    found_job = True
+                    # Extract book_id from guid_dir
+                    book_id = Path(guid_dir).name
+                    # Log service-start event for this book/job
+                    write_service_event("service-start", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT))
+                    try:
+                        worker_instance.process_pdf(guid_dir, pdf_path)
+                        # Log service-stop event on success
+                        write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="success")
+                    except Exception as e:
+                        # Log service-stop event on error
+                        write_service_event("service-stop", book_id, "pdf2markdown", storage_root=str(STORAGE_ROOT), result="error", error=str(e))
+                        logger.error_with_error(f"Error processing {guid_dir}: {e}", e)
+                if not found_job:
+                    logger.debug("No jobs found. Sleeping...")
+                time.sleep(10)
+        else:
+            logger.info("Job scanning loop is disabled via DISABLE_JOB_SCANNER environment variable. Worker initialized, but not scanning.")
     except Exception as e:
         logger.error_with_error(f"Fatal error in main: {e}", e)
         raise
@@ -81,13 +89,8 @@ def run_flask():
     app.run(host="0.0.0.0", port=3000)
 
 if __name__ == "__main__":
-    # Check environment variable to disable job scanning
-    disable_job_scanner = os.environ.get("DISABLE_JOB_SCANNER", "0").lower() in ("1", "true", "yes")
-    if not disable_job_scanner:
-        # Start the worker in a thread
-        worker_thread = threading.Thread(target=run_worker, daemon=True)
-        worker_thread.start()
-    else:
-        print("[INFO] Job scanning is disabled via DISABLE_JOB_SCANNER environment variable.")
+    # Always start the worker thread, but let the worker decide if it runs the loop
+    worker_thread = threading.Thread(target=run_worker, daemon=True)
+    worker_thread.start()
     # Start Flask server in main thread (so container stops if Flask dies)
     run_flask()
