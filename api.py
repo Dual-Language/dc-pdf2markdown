@@ -53,7 +53,7 @@ def convert_pdf():
         output_dir = temp_dir / book_id
         output_dir.mkdir(exist_ok=True)
         # Reuse the global worker instance from main.py
-        from main import worker_instance
+        from worker_singleton import worker_instance
         worker = worker_instance
         # Use the same logic as process_pdf, but for this single file
         image_dir_path = output_dir / "images"

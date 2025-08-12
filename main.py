@@ -23,8 +23,9 @@ STORAGE_ROOT = Path(os.environ.get("STORAGE_ROOT", str(DEFAULT_STORAGE_ROOT))).r
 # Flag to indicate if the worker loop has started
 worker_loop_started = threading.Event()
 
-# Global worker instance to be reused
-worker_instance = None
+
+# Import the singleton worker instance
+from worker_singleton import worker_instance
 
 app = Flask(__name__)
 app.register_blueprint(api_blueprint, url_prefix='/api')
@@ -52,9 +53,7 @@ def run_worker():
     logger = get_logger(STORAGE_ROOT)
     logger.info(f"Using storage root: {STORAGE_ROOT}")
     try:
-        logger.debug("About to create PDF2MarkdownWorker instance.")
-        # Create the global worker instance for reuse
-        worker_instance = PDF2MarkdownWorker(STORAGE_ROOT)
+        logger.debug("About to use PDF2MarkdownWorker singleton instance.")
         logger.debug("PDF2MarkdownWorker instance created successfully.")
         logger.debug("Starting PDF2MarkdownWorker loop...")
         worker_loop_started.set()  # Indicate the worker loop has started
