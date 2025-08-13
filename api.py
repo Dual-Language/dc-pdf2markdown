@@ -11,49 +11,48 @@ import json
 
 @api.route('/convert', methods=['POST'])
 def submit_pdf_job():
-    """
-    Submit a PDF file for conversion. Returns a job_id for status tracking and download.
-    ---
-    consumes:
-      - multipart/form-data
-    parameters:
-      - in: formData
-        name: file
-        type: file
-        required: true
-        description: The PDF file to upload
-    responses:
-        202:
-            description: Job accepted, returns job_id
-            schema:
-                type: object
-                properties:
-                    job_id:
-                        type: string
-        400:
-            description: Bad request
-        500:
-            description: Internal server error
-    """
-    logger = get_logger()
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    filename = secure_filename(file.filename)
-    from main import STORAGE_ROOT
-    job_id = str(uuid.uuid4())
-    job_dir = Path(STORAGE_ROOT) / job_id
-    job_dir.mkdir(exist_ok=True)
-    pdf_path = job_dir / filename
-    file.save(pdf_path)
-    # Optionally, write a job metadata file
-    meta = {"status": "pending", "filename": filename}
-    with open(job_dir / "job.json", "w", encoding="utf-8") as f:
-        json.dump(meta, f)
-    logger.info(f"Job {job_id} submitted with file {filename}")
-    return jsonify({"job_id": job_id}), 202
+	"""
+	Submit a PDF file for conversion. Returns a job_id for status tracking and download.
+	---
+	consumes:
+	  - multipart/form-data
+	parameters:
+	  - in: formData
+		name: file
+		type: file
+		required: true
+		description: The PDF file to upload
+	responses:
+		202:
+			description: Job accepted, returns job_id
+			schema:
+				type: object
+				properties:
+					job_id:
+						type: string
+		400:
+			description: Bad request
+		500:
+			description: Internal server error
+	"""
+	logger = get_logger()
+	if 'file' not in request.files:
+		return jsonify({'error': 'No file part'}), 400
+	file = request.files['file']
+	if file.filename == '':
+		return jsonify({'error': 'No selected file'}), 400
+	from main import STORAGE_ROOT
+	job_id = str(uuid.uuid4())
+	job_dir = Path(STORAGE_ROOT) / job_id
+	job_dir.mkdir(exist_ok=True)
+	pdf_path = job_dir / "originalbook.pdf"
+	file.save(pdf_path)
+	# Optionally, write a job metadata file
+	meta = {"status": "pending", "filename": "originalbook.pdf"}
+	with open(job_dir / "job.json", "w", encoding="utf-8") as f:
+		json.dump(meta, f)
+	logger.info(f"Job {job_id} submitted with file originalbook.pdf")
+	return jsonify({"job_id": job_id}), 202
 
 # Endpoint to check job status
 @api.route('/job_status/<job_id>', methods=['GET'])
