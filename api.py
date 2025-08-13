@@ -1,18 +1,18 @@
 from flask import Blueprint, request, send_file, jsonify
 from werkzeug.utils import secure_filename
-import tempfile
-import os
 import zipfile
 from pathlib import Path
-from service import PDF2MarkdownWorker
 from logger import get_logger
 
 api = Blueprint('api', __name__)
 
+import uuid
+import json
+
 @api.route('/convert', methods=['POST'])
-def convert_pdf():
+def submit_pdf_job():
     """
-    Convert PDF to Markdown and return a zip with markdown, images, and metadata.
+    Submit a PDF file for conversion. Returns a job_id for status tracking and download.
     ---
     consumes:
       - multipart/form-data
@@ -23,10 +23,13 @@ def convert_pdf():
         required: true
         description: The PDF file to upload
     responses:
-        200:
-            description: Zipped result with markdown, images, and metadata
+        202:
+            description: Job accepted, returns job_id
             schema:
-                type: file
+                type: object
+                properties:
+                    job_id:
+                        type: string
         400:
             description: Bad request
         500:
@@ -39,55 +42,96 @@ def convert_pdf():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
     filename = secure_filename(file.filename)
-    # Use the storage directory for temp output
     from main import STORAGE_ROOT
-    import uuid
-    temp_id = str(uuid.uuid4())
-    temp_dir = Path(STORAGE_ROOT) / f"api_job_{temp_id}"
-    temp_dir.mkdir(exist_ok=True)
-    try:
-        pdf_path = temp_dir / filename
-        file.save(pdf_path)
-        # Prepare output paths
-        book_id = pdf_path.stem
-        output_dir = temp_dir / book_id
-        output_dir.mkdir(exist_ok=True)
-        worker = PDF2MarkdownWorker(output_dir)
-        # Use the same logic as process_pdf, but for this single file
-        image_dir_path = output_dir / "images"
-        image_dir_path.mkdir(exist_ok=True)
-        converter = worker.converter
-        md_path = output_dir / f"{book_id}.md"
-        meta_path = output_dir / "bookmetadata.json"
-        conversion_metadata = converter.convert_pdf_to_markdown(str(pdf_path), str(md_path), image_dir_path, book_id)
-        # Write metadata
-        with open(meta_path, 'w', encoding='utf-8') as f:
-            import json
-            json.dump(conversion_metadata, f, indent=2)
-        # Zip everything
-        zip_path = temp_dir / f"{book_id}_result.zip"
+    job_id = str(uuid.uuid4())
+    job_dir = Path(STORAGE_ROOT) / job_id
+    job_dir.mkdir(exist_ok=True)
+    pdf_path = job_dir / filename
+    file.save(pdf_path)
+    # Optionally, write a job metadata file
+    meta = {"status": "pending", "filename": filename}
+    with open(job_dir / "job.json", "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+    logger.info(f"Job {job_id} submitted with file {filename}")
+    return jsonify({"job_id": job_id}), 202
+
+# Endpoint to check job status
+@api.route('/job_status/<job_id>', methods=['GET'])
+def job_status(job_id):
+    """
+    Check the status of a submitted job.
+    ---
+    parameters:
+      - in: path
+        name: job_id
+        type: string
+        required: true
+        description: The job ID to check
+    responses:
+        200:
+            description: Job status
+            schema:
+                type: object
+                properties:
+                    job_id:
+                        type: string
+                    status:
+                        type: string
+        404:
+            description: Job not found
+    """
+    from main import STORAGE_ROOT
+    job_dir = Path(STORAGE_ROOT) / job_id
+    progress_path = job_dir / "pdf2markdown-progress.json"
+    if not job_dir.exists():
+        return jsonify({"error": "Job not found"}), 404
+    if progress_path.exists():
+        with open(progress_path, "r", encoding="utf-8") as f:
+            progress = json.load(f)
+        status = progress.get("status", "pending")
+    else:
+        status = "pending"
+    return jsonify({"job_id": job_id, "status": status})
+
+# Endpoint to download result zip
+@api.route('/download/<job_id>', methods=['GET'])
+def download_result(job_id):
+    """
+    Download the result zip for a completed job.
+    ---
+    parameters:
+      - in: path
+        name: job_id
+        type: string
+        required: true
+        description: The job ID to download
+    responses:
+        200:
+            description: Zipped result with markdown, images, and metadata
+            schema:
+                type: file
+        404:
+            description: Job not found or result not ready
+    """
+    from main import STORAGE_ROOT
+    job_dir = Path(STORAGE_ROOT) / job_id
+    if not job_dir.exists():
+        return jsonify({"error": "Job not found"}), 404
+    # Find the .md file and images dir
+    md_files = list(job_dir.glob("*.md"))
+    if not md_files:
+        return jsonify({"error": "Result not ready"}), 404
+    book_id = md_files[0].stem
+    zip_path = job_dir / f"{book_id}_result.zip"
+    # If zip does not exist, create it
+    if not zip_path.exists():
+        meta_path = job_dir / "bookmetadata.json"
+        image_dir_path = job_dir / "images"
         with zipfile.ZipFile(zip_path, 'w') as zipf:
-            zipf.write(md_path, arcname=f"{book_id}.md")
-            zipf.write(meta_path, arcname="bookmetadata.json")
+            zipf.write(md_files[0], arcname=f"{book_id}.md")
+            if meta_path.exists():
+                zipf.write(meta_path, arcname="bookmetadata.json")
             if image_dir_path.exists():
                 for img_file in image_dir_path.iterdir():
                     zipf.write(img_file, arcname=f"images/{img_file.name}")
-        # Ensure the zip file is closed before sending
-        response = send_file(str(zip_path), as_attachment=True, download_name=f"{book_id}_result.zip")
-        # After sending, schedule deletion of the temp files
-        from flask import after_this_request
-        @after_this_request
-        def cleanup(response):
-            try:
-                import shutil
-                shutil.rmtree(temp_dir)
-            except Exception as cleanup_err:
-                logger.warning(f"Could not clean up temp dir {temp_dir}: {cleanup_err}")
-            return response
-        return response
-    except Exception as e:
-        logger.error_with_error(f"Error in /convert: {e}", e)
-        # Clean up on error
-        import shutil
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        return jsonify({'error': str(e)}), 500
+    return send_file(str(zip_path), as_attachment=True, download_name=f"{book_id}_result.zip")

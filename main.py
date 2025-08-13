@@ -81,13 +81,6 @@ def run_flask():
     app.run(host="0.0.0.0", port=3000)
 
 if __name__ == "__main__":
-    # Check environment variable to disable job scanning
-    disable_job_scanner = os.environ.get("DISABLE_JOB_SCANNER", "0").lower() in ("1", "true", "yes")
-    if not disable_job_scanner:
-        # Start the worker in a thread
-        worker_thread = threading.Thread(target=run_worker, daemon=True)
-        worker_thread.start()
-    else:
-        print("[INFO] Job scanning is disabled via DISABLE_JOB_SCANNER environment variable.")
-    # Start Flask server in main thread (so container stops if Flask dies)
+    worker_thread = threading.Thread(target=run_worker, daemon=True)
+    worker_thread.start()
     run_flask()
