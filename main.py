@@ -13,7 +13,6 @@ from event_logger import write_service_event
 
 # --- Flask server for health check ---
 from flask import Flask, jsonify
-from flasgger import Swagger
 from api import api as api_blueprint
 import threading
 
@@ -25,18 +24,6 @@ worker_loop_started = threading.Event()
 
 app = Flask(__name__)
 app.register_blueprint(api_blueprint, url_prefix='/api')
-
-# Flasgger Swagger config
-swagger_template = {
-    "swagger": "2.0",
-    "info": {
-        "title": "PDF to Markdown API",
-        "description": "Convert PDF to Markdown and download as zip (with images and metadata)",
-        "version": "1.0.0"
-    },
-    "basePath": "/api",
-}
-swagger = Swagger(app, template=swagger_template)
 
 @app.route('/ping')
 def ping():

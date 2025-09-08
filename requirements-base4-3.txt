@@ -1,5 +1,0 @@
-tqdm==4.67.1
-transformers==4.53.2
-typing-inspection==0.4.1
-typing_extensions==4.14.1
-urllib3==2.5.0 

@@ -1,5 +1,4 @@
 from flask import Blueprint, request, send_file, jsonify
-from werkzeug.utils import secure_filename
 import zipfile
 from pathlib import Path
 from logger import get_logger
@@ -11,30 +10,7 @@ import json
 
 @api.route('/convert', methods=['POST'])
 def submit_pdf_job():
-    """
-    Submit a PDF file for conversion. Returns a job_id for status tracking and download.
-    ---
-    consumes:
-      - multipart/form-data
-    parameters:
-      - in: formData
-        name: file
-        type: file
-        required: true
-        description: The PDF file to upload
-    responses:
-        202:
-            description: Job accepted, returns job_id
-            schema:
-                type: object
-                properties:
-                    job_id:
-                        type: string
-        400:
-            description: Bad request
-        500:
-            description: Internal server error
-    """
+    """Submit a PDF file for conversion. Returns a job_id for status tracking and download."""
     logger = get_logger()
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -57,28 +33,7 @@ def submit_pdf_job():
 # Endpoint to check job status
 @api.route('/job_status/<job_id>', methods=['GET'])
 def job_status(job_id):
-    """
-    Check the status of a submitted job.
-    ---
-    parameters:
-      - in: path
-        name: job_id
-        type: string
-        required: true
-        description: The job ID to check
-    responses:
-        200:
-            description: Job status
-            schema:
-                type: object
-                properties:
-                    job_id:
-                        type: string
-                    status:
-                        type: string
-        404:
-            description: Job not found
-    """
+    """Check the status of a submitted job."""
     from main import STORAGE_ROOT
     job_dir = Path(STORAGE_ROOT) / job_id
     progress_path = job_dir / "pdf2markdown-progress.json"
@@ -95,23 +50,7 @@ def job_status(job_id):
 # Endpoint to download result zip
 @api.route('/download/<job_id>', methods=['GET'])
 def download_result(job_id):
-    """
-    Download the result zip for a completed job.
-    ---
-    parameters:
-      - in: path
-        name: job_id
-        type: string
-        required: true
-        description: The job ID to download
-    responses:
-        200:
-            description: Zipped result with markdown, images, and metadata
-            schema:
-                type: file
-        404:
-            description: Job not found or result not ready
-    """
+    """Download the result zip for a completed job."""
     from main import STORAGE_ROOT
     job_dir = Path(STORAGE_ROOT) / job_id
     if not job_dir.exists():

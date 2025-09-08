@@ -9,9 +9,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set work directory
 WORKDIR /app
 
-# Install pip and system dependencies
+# Install pip and system dependencies (including WeasyPrint dependencies)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc dos2unix && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        dos2unix \
+        curl \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libfontconfig1 \
+        libcairo2 \
+        libgdk-pixbuf2.0-0 \
+        libffi-dev \
+        shared-mime-info && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy project files

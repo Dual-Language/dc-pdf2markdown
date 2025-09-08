@@ -3,7 +3,7 @@ import base64
 from pathlib import Path
 from typing import Dict, Any
 from marker.converters.pdf import PdfConverter
-from model_utils import create_model_dict
+from marker.models import create_model_dict
 from logger import get_logger
 
 PROGRESS_FILENAME = "pdf2markdown-progress.json"
